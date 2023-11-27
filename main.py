@@ -23,19 +23,31 @@ def generate_free_windows(start_time, end_time, busy_intervals):
         start_time (str): Время начала рабочего дня в формате HH:MM.
         end_time (str): Время окончания рабочего дня в формате HH:MM.
         busy_intervals (list): Список словарей, представляющих занятые интервалы в рабочем дне.
-                              Каждый словарь содержит 'start' и 'stop', представляющие время начала и окончания интервала.
+                              Каждый словарь содержит 'start' и 'stop',
+                              представляющие время начала и окончания интервала.
 
     Returns:
         list: Список словарей, представляющих свободные окна и занятые интервалы в рабочем дне.
               Каждый словарь содержит 'start' и 'stop' для времени начала и окончания,
               а также 'type', указывающий тип интервала ('Свободное окно' или 'Перерыв').
+
+    Примечания:
+        Для удобства чтения вывод представляет собой один вариант свободных окон
+        без возможных вариаций сдвигов на 5 или более минут.
+
+        Для более точного определения количества интервалов для записи в «окнах» нужно понимать минимальный шаг записи.
+        В программе айдент (IDENT), например, установлен минимальный шаг 15 мин. То есть (для примера) программа
+        не подразумевает возможности записи на 8:05, 8:10, 8:20 - только 8:00/8:15/8:30
+
     """
     start_time_format = datetime.strptime(start_time, '%H:%M')
     end_time_format = datetime.strptime(end_time, '%H:%M')
 
     busy_intervals_format = sorted(
-        [(datetime.strptime(interval['start'], '%H:%M'), datetime.strptime(interval['stop'], '%H:%M')) for interval in
-         busy_intervals],
+        [
+            (datetime.strptime(interval['start'], '%H:%M'),
+             datetime.strptime(interval['stop'], '%H:%M')) for interval in busy_intervals
+        ],
         key=lambda x: x[0]
     )
 
