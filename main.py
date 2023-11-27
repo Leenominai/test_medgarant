@@ -92,8 +92,8 @@ def print_intervals(intervals):
     Parameters:
         intervals (list): Список словарей, представляющих свободные окна и занятые интервалы в рабочем дне.
 
-    Returns:
-        None
+    Print:
+        Список свободных окон и перерывов между ними.
     """
     print(f"Начало рабочего дня: {start_time}")
     for interval in intervals:
