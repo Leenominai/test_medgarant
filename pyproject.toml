@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "test-medgarant"
+version = "0.1.0"
+description = ""
+authors = ["Александр Рассыхаев <farexzon@yandex.ru>"]
+readme = "README.md"
+packages = [{include = "test_medgarant"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
