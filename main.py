@@ -1,12 +1,13 @@
 import logging
 from datetime import datetime, timedelta
 
+
 logging.basicConfig(level=logging.INFO)
 
-start_time = '09:00'
-end_time = '21:00'
+START_TIME = '09:00'
+END_TIME = '21:00'
 
-busy = [
+BUSY = [
     {'start': '10:30', 'stop': '10:50'},
     {'start': '18:40', 'stop': '18:50'},
     {'start': '14:40', 'stop': '15:50'},
@@ -38,7 +39,6 @@ def generate_free_windows(start_time, end_time, busy_intervals):
         Для более точного определения количества интервалов для записи в «окнах» нужно понимать минимальный шаг записи.
         В программе айдент (IDENT), например, установлен минимальный шаг 15 мин. То есть (для примера) программа
         не подразумевает возможности записи на 8:05, 8:10, 8:20 - только 8:00/8:15/8:30
-
     """
     start_time_format = datetime.strptime(start_time, '%H:%M')
     end_time_format = datetime.strptime(end_time, '%H:%M')
@@ -58,27 +58,20 @@ def generate_free_windows(start_time, end_time, busy_intervals):
 
     logging.info("Начало генерации свободных окон.")
 
-    for i in range(len(busy_intervals_format) - 1):
-        current_start = busy_intervals_format[i][1]
-        next_stop = busy_intervals_format[i + 1][0]
+    current_start = busy_intervals_format[0][1]
 
-        time_difference = next_stop - current_start
+    for busy_start, busy_stop in busy_intervals_format[1:]:
+        time_difference = busy_start - current_start
 
         if time_difference >= timedelta(minutes=30):
             max_windows = (time_difference.total_seconds() // (30 * 60))
+            free_windows.extend(
+                {'start': current_start + timedelta(minutes=30 * j),
+                 'stop': current_start + timedelta(minutes=30 * (j + 1)),
+                 'type': 'Свободное окно'} for j in range(int(max_windows))
+            )
 
-            for j in range(int(max_windows)):
-                window_start = current_start + timedelta(minutes=30 * j)
-                window_stop = window_start + timedelta(minutes=30)
-                free_windows.append({'start': window_start, 'stop': window_stop, 'type': 'Свободное окно'})
-
-    for interval in busy_intervals_format[1:-1]:
-        busy_interval_start = interval[0]
-        busy_interval_stop = interval[1]
-        busy_interval = {'start': busy_interval_start, 'stop': busy_interval_stop, 'type': 'Перерыв'}
-        free_windows.append(busy_interval)
-
-    free_windows = sorted(free_windows, key=lambda x: x['start'])
+        current_start = max(current_start, busy_stop)
 
     logging.info("Генерация свободных окон завершена.")
 
@@ -95,14 +88,19 @@ def print_intervals(intervals):
     Print:
         Список свободных окон и перерывов между ними.
     """
-    print(f"Начало рабочего дня: {start_time}")
+    logging.info(f"Начало рабочего дня: {START_TIME}")
     for interval in intervals:
         start_str = interval['start'].strftime('%H:%M')
         stop_str = interval['stop'].strftime('%H:%M')
         interval_type = interval.get('type', 'Свободное окно')
         print(f"{interval_type.capitalize()}: {start_str} - {stop_str}")
-    print(f"Конец рабочего дня: {end_time}.")
+    logging.info(f"Конец рабочего дня: {END_TIME}.")
 
 
-free_windows = generate_free_windows(start_time, end_time, busy)
-print_intervals(free_windows)
+def main():
+    free_windows = generate_free_windows(START_TIME, END_TIME, BUSY)
+    print_intervals(free_windows)
+
+
+if __name__ == "__main__":
+    main()
