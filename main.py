@@ -16,7 +16,53 @@ BUSY = [
 ]
 
 
-def generate_free_windows(start_time, end_time, busy_intervals):
+def convert_to_datetime_format(time_str: str) -> datetime:
+    """
+    Преобразует строку времени в формат datetime.
+
+    Parameters:
+        time_str (str): Строка времени в формате HH:MM.
+
+    Returns:
+        datetime: Время в формате datetime.
+
+    Raises:
+        ValueError: Если переданная строка не соответствует формату HH:MM.
+    """
+    try:
+        return datetime.strptime(time_str, '%H:%M')
+    except ValueError:
+        raise ValueError(f"Некорректный формат времени: {time_str}. Ожидается формат HH:MM.")
+
+
+def generate_busy_intervals(busy_intervals: list) -> list:
+    """
+    Сортирует и форматирует список занятых интервалов.
+
+    Parameters:
+        busy_intervals (list): Список словарей, представляющих занятые интервалы в рабочем дне.
+
+    Returns:
+        list: Отсортированный список кортежей (datetime, datetime),
+              представляющих временные интервалы занятости.
+
+    Raises:
+        ValueError: Отсутствует обязательное поле.
+    """
+    try:
+        busy_intervals_format = sorted(
+            [
+                (convert_to_datetime_format(interval['start']),
+                 convert_to_datetime_format(interval['stop'])) for interval in busy_intervals
+            ],
+            key=lambda x: x[0]
+        )
+        return busy_intervals_format
+    except KeyError as e:
+        raise ValueError(f"Отсутствует обязательное поле {e} в одном из интервалов.")
+
+
+def generate_free_windows(start_time: str, end_time: str, busy_intervals: list) -> list:
     """
     Генерирует список свободных окон в рабочем дне.
 
@@ -32,74 +78,83 @@ def generate_free_windows(start_time, end_time, busy_intervals):
               Каждый словарь содержит 'start' и 'stop' для времени начала и окончания,
               а также 'type', указывающий тип интервала ('Свободное окно' или 'Перерыв').
 
-    Примечания:
+    Важные примечания:
         Для удобства чтения вывод представляет собой один вариант свободных окон
         без возможных вариаций сдвигов на 5 или более минут.
 
         Для более точного определения количества интервалов для записи в «окнах» нужно понимать минимальный шаг записи.
         В программе айдент (IDENT), например, установлен минимальный шаг 15 мин. То есть (для примера) программа
         не подразумевает возможности записи на 8:05, 8:10, 8:20 - только 8:00/8:15/8:30
+
+    Raises:
+        ValueError: Если входные данные некорректны.
     """
-    start_time_format = datetime.strptime(start_time, '%H:%M')
-    end_time_format = datetime.strptime(end_time, '%H:%M')
+    try:
+        start_time_format = convert_to_datetime_format(start_time)
+        end_time_format = convert_to_datetime_format(end_time)
 
-    busy_intervals_format = sorted(
-        [
-            (datetime.strptime(interval['start'], '%H:%M'),
-             datetime.strptime(interval['stop'], '%H:%M')) for interval in busy_intervals
-        ],
-        key=lambda x: x[0]
-    )
+        busy_intervals_format = generate_busy_intervals(busy_intervals)
 
-    busy_intervals_format.insert(0, (start_time_format, start_time_format))
-    busy_intervals_format.append((end_time_format, end_time_format))
+        busy_intervals_format.insert(0, (start_time_format, start_time_format))
+        busy_intervals_format.append((end_time_format, end_time_format))
 
-    free_windows = []
+        free_windows = []
 
-    logging.info("Начало генерации свободных окон.")
+        logging.debug("Начало генерации свободных окон.")
 
-    current_start = busy_intervals_format[0][1]
+        current_start = busy_intervals_format[0][1]
 
-    for busy_start, busy_stop in busy_intervals_format[1:]:
-        time_difference = busy_start - current_start
+        for busy_start, busy_stop in busy_intervals_format[1:]:
+            time_difference = busy_start - current_start
 
-        if time_difference >= timedelta(minutes=30):
-            max_windows = (time_difference.total_seconds() // (30 * 60))
-            free_windows.extend(
-                {'start': current_start + timedelta(minutes=30 * j),
-                 'stop': current_start + timedelta(minutes=30 * (j + 1)),
-                 'type': 'Свободное окно'} for j in range(int(max_windows))
-            )
+            if time_difference >= timedelta(minutes=30):
+                max_windows = (time_difference.total_seconds() // (30 * 60))
+                free_windows.extend(
+                    {'start': current_start + timedelta(minutes=30 * j),
+                     'stop': current_start + timedelta(minutes=30 * (j + 1)),
+                     'type': 'Свободное окно'} for j in range(int(max_windows))
+                )
 
-        current_start = max(current_start, busy_stop)
+            current_start = max(current_start, busy_stop)
 
-    logging.info("Генерация свободных окон завершена.")
+        logging.debug("Генерация свободных окон завершена.")
 
-    return free_windows
+        return free_windows
+    except ValueError as e:
+        raise ValueError(f"Ошибка во входных данных: {e}")
 
 
-def print_intervals(intervals):
+def print_intervals(intervals: list) -> None:
     """
-    Выводит интервалы в консоль.
+    Выводит список свободных окон и перерывов между ними.
 
     Parameters:
         intervals (list): Список словарей, представляющих свободные окна и занятые интервалы в рабочем дне.
-
-    Print:
-        Список свободных окон и перерывов между ними.
+    Returns:
+        None
     """
-    logging.info(f"Начало рабочего дня: {START_TIME}")
+    logging.debug(f"Начало рабочего дня: {START_TIME}")
     for interval in intervals:
         start_str = interval['start'].strftime('%H:%M')
         stop_str = interval['stop'].strftime('%H:%M')
         interval_type = interval.get('type', 'Свободное окно')
         print(f"{interval_type.capitalize()}: {start_str} - {stop_str}")
-    logging.info(f"Конец рабочего дня: {END_TIME}.")
+    logging.debug(f"Конец рабочего дня: {END_TIME}.")
 
 
-def main():
-    free_windows = generate_free_windows(START_TIME, END_TIME, BUSY)
-    print_intervals(free_windows)
+def main() -> None:
+    """
+    Генерирует свободные окна в рабочем дне и выводит результат в консоль.
+
+    Returns:
+        None
+    """
+    try:
+        free_windows = generate_free_windows(START_TIME, END_TIME, BUSY)
+        print_intervals(free_windows)
+        logging.debug("Программа успешно завершена.")
+    except ValueError as e:
+        print(f"Ошибка: {e}")
 
 
 if __name__ == "__main__":
